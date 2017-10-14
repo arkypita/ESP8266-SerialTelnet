@@ -2,6 +2,8 @@
 `1.`  Download and install Arduino IDE 1.6.x from https://www.arduino.cc/en/Main/Software
 
 `2.`  Install ESP8266 Arduino support https://github.com/esp8266/Arduino#installing-with-boards-manager
+Please note: require version >= 2.4.0 
+Replace package URL with https://github.com/esp8266/Arduino/releases/download/2.4.0-rc1/package_esp8266com_index.json
 
 `3.`  Install the following libraries:
 
