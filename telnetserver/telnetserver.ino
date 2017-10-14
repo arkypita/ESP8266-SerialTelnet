@@ -1,5 +1,10 @@
+
+//PLEASE NOTE:
+//require ESP8266 >= 2.4.0 https://github.com/esp8266/Arduino/releases/tag/2.4.0-rc1
+//for the use of "setRxBufferSize" function
+
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
+#include <ESP8266WiFi.h> 
 #include <Hash.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
@@ -15,15 +20,16 @@ const char* update_password = "admin";
 
 #define MAX_SRV_CLIENTS 1
 WiFiServer server(23);
-WiFiClient serverClients[MAX_SRV_CLIENTS];
+WiFiClient serverClient;
 
 int RESET_PIN = 0; // = GPIO0 on nodeMCU
 WiFiManager wifiManager;
 
 void setup()
 {
+	Serial.setRxBufferSize(1024); //require ESP8266 >= 2.4.0 https://github.com/esp8266/Arduino/releases/tag/2.4.0-rc1
 	Serial.begin(115200);
-	            
+
     delay(5000); //BOOT WAIT
     pinMode(RESET_PIN, INPUT_PULLUP);
     wifiManager.autoConnect("ESP8266");
@@ -40,47 +46,48 @@ void setup()
 
 void loop()
 {
-    httpServer.handleClient();
-    manage();
+	if (server.hasClient())
+		AcceptConnection();
+	else if (serverClient && serverClient.connected())
+		ManageConnected();
+	
+	httpServer.handleClient();
 }
 
-void manage() {
-  uint8_t i;
-  //check if there are any new clients
-  if (server.hasClient()){
-    for(i = 0; i < MAX_SRV_CLIENTS; i++){
-      //find free/disconnected spot
-      if (!serverClients[i] || !serverClients[i].connected()){
-        if(serverClients[i]) serverClients[i].stop();
-        serverClients[i] = server.available();
-        serverClients[i].write("Connected\n");
-        continue;
-      }
-    }
-    //no free/disconnected spot so reject
-    WiFiClient serverClient = server.available();
-    serverClient.stop();
-  }
-  //check clients for data
-  for(i = 0; i < MAX_SRV_CLIENTS; i++){
-    if (serverClients[i] && serverClients[i].connected()){
-      if(serverClients[i].available()){
-        //get data from the telnet client and push it to the UART
-        while(serverClients[i].available()) Serial.write(serverClients[i].read());
-      }
-    }
-  }
-  //check UART for data
-  if(Serial.available()){
-    size_t len = Serial.available();
-    uint8_t sbuf[len];
-    Serial.readBytes(sbuf, len);
-    //push UART data to all connected telnet clients
-    for(i = 0; i < MAX_SRV_CLIENTS; i++){
-      if (serverClients[i] && serverClients[i].connected()){
-        serverClients[i].write(sbuf, len);
-        delay(1);
-      }
-    }
-  }
+void AcceptConnection()
+{
+	if (serverClient && serverClient.connected()) 
+		serverClient.stop();
+
+	serverClient = server.available();
+	serverClient.write("ESP8266 Connected!\n");
+}
+
+void ManageConnected()
+{
+    size_t rxlen = serverClient.available();
+    if (rxlen > 0)
+	{
+		uint8_t sbuf[rxlen];
+		serverClient.readBytes(sbuf, rxlen);
+        Serial.write(sbuf, rxlen);
+	}
+	
+    size_t txlen = Serial.available();
+    if (txlen > 0)
+	{
+		uint8_t sbuf[txlen];
+		Serial.readBytes(sbuf, txlen);
+        serverClient.write(sbuf, txlen);
+	}
+}
+
+void SendFormat (char * format, ...)
+{
+	char buffer[100];
+	va_list args;
+	va_start (args, format);
+	vsnprintf (buffer, 100, format, args);
+	va_end (args);
+	Serial.write(buffer);	
 }
