@@ -82,13 +82,4 @@ void ManageConnected()
 	}
 }
 
-void SendFormat (char * format, ...)
-{
-	char buffer[100];
-	va_list args;
-	va_start (args, format);
-	vsnprintf (buffer, 100, format, args);
-	va_end (args);
-	Serial.write(buffer);	
-}
 
